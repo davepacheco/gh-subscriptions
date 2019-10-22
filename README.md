@@ -44,10 +44,10 @@ watching them, use:
 If you want to stop watching a lot of repositories, try something like this:
 
     # List all the repositories that you're watching:
-    $ ./gh-subscriptions list | sort > all-repos.txt
+    $ ./gh-subscriptions list | sort > watched-repos.txt
 
     # Edit the list to include only the repos you want to stop watching:
-    $ cp all-repos.txt to-remove.txt
+    $ cp watched-repos.txt to-remove.txt
     $ vim to-remove.txt
 
     # Hand-check the output:
