@@ -1,0 +1,101 @@
+#!/usr/bin/env python
+
+#
+# gh-subscriptions: very basic GitHub subscription manager tool.  See README.md
+# for usage information.
+#
+
+import sys
+import github
+
+#
+# Path to the file containing the GitHub access token.
+#
+credpath = './github-access-token'
+
+def main():
+    # Load the personal access token.
+    credpath = './github-access-token'
+    credfile = open(credpath, mode='rt')
+    authtoken = credfile.read(1024)
+
+    # Instantiate the GitHub API client.
+    ghctx = github.Github(authtoken)
+
+    # Process command-line arguments.
+    if len(sys.argv) < 2:
+        fatal('expected command\n')
+
+    cmd = sys.argv[1];
+    if cmd == 'list':
+        if len(sys.argv) != 2:
+            fatal('expected no arguments for "list"\n')
+        do_list(ghctx)
+    elif cmd == "remove-from-file":
+        dryrun = True
+        if len(sys.argv) == 3:
+            toremove_filename = sys.argv[2];
+        elif len(sys.argv) == 4:
+            toremove_filename = sys.argv[3];
+            if sys.argv[2] == '-f' or sys.argv[2] == '--force':
+                dryrun = False
+            else:
+                fatal('unexpected arguments for "remove-from-file"\n');
+        else:
+            fatal('expected exactly one argument for "remove-from-file"\n')
+
+        do_remove_from_file(ghctx, toremove_filename, dryrun)
+    else:
+        fatal('unsupported command: "%s"\n' % cmd)
+
+# Dump the given message to stderr and exit the process.
+def fatal(str):
+    sys.stderr.write(str)
+    sys.exit(1)
+
+#
+# "list" command: list watched repositories
+#
+def do_list(ghctx):
+    for repo in ghctx.get_user().get_subscriptions():
+        print(repo.full_name)
+
+#
+# "remove-from-file" command: stop watching repositories listed in the given
+# file.
+#
+def do_remove_from_file(ghctx, filepath, dryrun):
+    if dryrun:
+        print('NOTE: dry-run mode: not making any changes')
+    else:
+        print('NOTE: force mode: will apply changes!')
+
+    #
+    # Read the user's list of repositories to stop watching and load the
+    # repository names into a dictionary.
+    #
+    toremove = {}
+    with open(filepath, 'r') as infile:
+        for line in infile:
+            toremove[line.rstrip('\n')] = True;
+
+    #
+    # List all subscriptions and remove any that we recorded in our dictionary.
+    # (We do it this way rather than deleting the subscription directly because
+    # we have to instantiate a full Repository object anyway, and this also lets
+    # us safely skip validation, since we won't try to remove a subscription we
+    # didn't find in the list of subscriptions.)
+    #
+    for repo in ghctx.get_user().get_subscriptions():
+        if repo.full_name in toremove:
+            print('remove subscription: %s' % repo.full_name)
+
+            if not dryrun:
+                ghctx.get_user().remove_from_subscriptions(repo)
+
+            del toremove[repo.full_name]
+
+    for reponame in toremove.keys():
+        print('warning: no subscription found: %s' % reponame)
+
+main();
